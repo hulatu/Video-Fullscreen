@@ -6,7 +6,7 @@
 
 ## 🚀 安装方式
 
-👉 **[点击这里一键安装脚本](https://github.com/hulatu/Video-Fullscreen/raw/refs/heads/main/Video-Fullscreen.user.js)** 👈
+👉 **[点击这里一键安装脚本](https://www.tampermonkey.net/script_installation.php#url=https://github.com/hulatu/Video-Fullscreen/raw/refs/heads/main/Video-Fullscreen.user.js)** 👈
 
 *(注：需要提前在浏览器安装 [Tampermonkey](https://www.tampermonkey.net/) 插件)*
 
