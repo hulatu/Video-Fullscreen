@@ -5,7 +5,7 @@
 
 ## 🚀 安装方式
 
-👉 **[点击这里一键安装脚本](这里粘贴你刚才复制的 Raw 链接)** 👈
+👉 **[点击这里一键安装脚本](chrome-extension://dhdgffkkebhmkfjojejmpbldmpobfkfo/ask.html?aid=c2faddc9-a4a5-4b25-9074-450dd4e86775)** 👈
 
 *(注：需要提前在浏览器安装 [Tampermonkey](https://www.tampermonkey.net/) 插件)*
 
