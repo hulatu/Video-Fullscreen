@@ -1,11 +1,12 @@
 # 📺 现代视频网页全屏 / 画中画 (油猴脚本)
 
 基于 [视频网页全屏](https://greasyfork.org/zh-CN/scripts/4870-maximize-video) 项目，更新后的一版可用脚本。
+
 彻底解决现代视频网站（特别是 B 站）在网页全屏时的侧边栏、弹幕栏遮挡问题。支持原生无刷新单页应用 (SPA)。
 
 ## 🚀 安装方式
 
-👉 **[点击这里一键安装脚本]([chrome-extension://dhdgffkkebhmkfjojejmpbldmpobfkfo/ask.html?aid=c2faddc9-a4a5-4b25-9074-450dd4e86775](https://github.com/hulatu/Video-Fullscreen/raw/refs/heads/main/Video-Fullscreen.user.js))** 👈
+👉 **[点击这里一键安装脚本](https://github.com/hulatu/Video-Fullscreen/raw/refs/heads/main/Video-Fullscreen.user.js)** 👈
 
 *(注：需要提前在浏览器安装 [Tampermonkey](https://www.tampermonkey.net/) 插件)*
 
