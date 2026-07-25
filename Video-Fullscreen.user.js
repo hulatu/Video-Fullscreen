@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         视频网页全屏/画中画 (终极版)
 // @namespace    https://github.com/hulatu/Video-Fullscreen
-// @version      2.0.0
+// @version      1.0.0
 // @description  完美解决 B 站等界面的遮挡问题...
-// @author       你的名字或昵称
+// @author       hulatu
 // @match        *://*/*
 // @exclude      *://*.w3school.com.cn/*
 // @grant        none
