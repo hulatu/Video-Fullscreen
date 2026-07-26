@@ -5,6 +5,16 @@
 // @description  按 Esc 智能切换 B站网页全屏 / YouTube 影院模式；按 F2 切换无边框画中画。
 // @author       hulatu
 // @match        *://*/*
+// @match        *://*.youtube.com/*
+// @match        *://*.bilibili.com/*
+// @match        *://*.douyu.com/*
+// @match        *://*.huya.com/*
+// @match        *://*.iqiyi.com/*
+// @match        *://v.qq.com/*
+// @include      *://*/*
+// @exclude      *://*.w3school.com.cn/*
+// @grant        none
+// @run-at       document-end
 // @exclude      *://*.w3school.com.cn/*
 // @grant        none
 // @run-at       document-end
