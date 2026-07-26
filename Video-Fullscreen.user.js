@@ -2,10 +2,10 @@
 // @name         视频网页全屏/画中画
 // @namespace    https://github.com/hulatu/Video-Fullscreen
 // @version      2.0.0
-// @description  完美解决 B 站等界面的遮挡问题...
+// @description  按 Esc 智能切换 B站网页全屏 / YouTube 影院模式；按 F2 切换无边框画中画。
 // @author       hulatu
-// @match        :///*
-// @exclude      ://.w3school.com.cn/*
+// @match        *://*/*
+// @exclude      *://*.w3school.com.cn/*
 // @grant        none
 // @run-at       document-end
 // @updateURL    https://raw.githubusercontent.com/hulatu/Video-Fullscreen/main/Video-Fullscreen.user.js
