@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         视频网页全屏/画中画 (纯净通用版)
+// @name         视频网页全屏/画中画 (原生丝滑版)
 // @namespace    https://github.com/hulatu/Video-Fullscreen
-// @version      1.0.2
-// @description  利用纯 CSS 算法实现全网通用的网页全屏，不干扰网站原生快捷键，完美解决 B 站/YouTube 遮挡问题
+// @version      2.0.0
+// @description  按 Esc 智能切换 B站网页全屏 / YouTube 影院模式；按 F2 切换无边框画中画。
 // @author       hulatu
 // @match        *://*/*
 // @exclude      *://*.w3school.com.cn/*
@@ -14,20 +14,49 @@
     'use strict';
 
     // ==========================================
-    // UI 与核心状态管理
+    // 网站专属规则库：精确映射各网站的“网页全屏/影院模式”按钮
+    // ==========================================
+    const siteRules = [
+        {
+            host: 'bilibili.com',
+            // B站：网页全屏按钮 (兼容普通视频、番剧、直播)
+            webBtn: '.bpx-player-ctrl-web, .squirtle-video-pagefullscreen, .bilibili-live-player-video-controller-web-fullscreen-btn-span'
+        },
+        {
+            host: 'youtube.com',
+            // YouTube：影院模式 (Theater Mode) 按钮
+            webBtn: '.ytp-size-button'
+        },
+        {
+            host: 'douyu.com',
+            webBtn: 'div[title="网页全屏"], .layout-Player-toolbar-webFull'
+        },
+        {
+            host: 'huya.com',
+            webBtn: '.player-fullpage-btn'
+        },
+        {
+            host: 'v.qq.com',
+            webBtn: '.txp_btn_fake'
+        },
+        {
+            host: 'iqiyi.com',
+            webBtn: '.iqp-btn-webscreen'
+        }
+    ];
+
+    // ==========================================
+    // UI 控制与状态
     // ==========================================
     const state = {
-        isWebFS: false,
         activeVideo: null,
-        activeContainer: null,
-        hideTimer: null
+        hideTimer: null,
+        isGenericWebFS: false // 仅用于没有原生按钮的冷门网站的降级方案
     };
 
-    // 注入核心 CSS（底层强制破除遮挡的魔法）
     const injectCSS = () => {
         const style = document.createElement('style');
         style.innerHTML = `
-            /* 悬浮按钮 UI */
             #mv-controls-container {
                 position: fixed;
                 z-index: 2147483647;
@@ -44,7 +73,7 @@
                 pointer-events: auto;
             }
             .mv-btn {
-                background: rgba(30, 30, 30, 0.75);
+                background: rgba(40, 40, 40, 0.85);
                 color: #FFF;
                 border: 1px solid rgba(255,255,255,0.2);
                 border-radius: 6px;
@@ -52,56 +81,27 @@
                 font-size: 13px;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
                 cursor: pointer;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-                backdrop-filter: blur(8px);
+                box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                backdrop-filter: blur(5px);
                 transition: all 0.2s ease;
             }
             .mv-btn:hover {
-                background: rgba(39, 116, 216, 0.9);
-                border-color: rgba(255,255,255,0.5);
+                background: rgba(39, 116, 216, 0.95);
+                border-color: rgba(255,255,255,0.4);
             }
-
-            /* --------- 核心全屏算法 CSS --------- */
-            body.mv-webfs-active {
-                overflow: hidden !important; /* 隐藏浏览器滚动条 */
+            /* 通用全屏备用方案 (仅冷门网站触发) */
+            body.mv-fallback-active { overflow: hidden !important; }
+            .mv-fallback-fs {
+                position: fixed !important; top: 0 !important; left: 0 !important;
+                width: 100vw !important; height: 100vh !important;
+                z-index: 2147483647 !important; background: #000 !important;
             }
-
-            /* 容器强制置顶全屏 */
-            .mv-webfs-container {
-                position: fixed !important;
-                top: 0 !important; 
-                left: 0 !important;
-                width: 100vw !important; 
-                height: 100vh !important;
-                max-width: 100vw !important; 
-                max-height: 100vh !important;
-                margin: 0 !important; 
-                padding: 0 !important;
-                z-index: 2147483647 !important;
-                background: #000 !important;
-            }
-
-            /* 确保视频本身铺满容器，并保持比例不变形 (解决 YouTube 核心痛点) */
-            .mv-webfs-container video {
-                width: 100% !important; 
-                height: 100% !important;
-                object-fit: contain !important; 
-            }
-
-            /* 破除所有父级元素的层叠上下文限制 (防止被网站顶部导航栏遮挡) */
-            .mv-webfs-ancestor {
-                transform: none !important;
-                filter: none !important;
-                perspective: none !important;
-                contain: none !important;
-                will-change: auto !important;
-                z-index: auto !important; 
-            }
+            .mv-fallback-fs video { object-fit: contain !important; width: 100% !important; height: 100% !important; }
+            .mv-fallback-ancestor { transform: none !important; z-index: 2147483646 !important; }
         `;
         document.head.appendChild(style);
     };
 
-    // 初始化按钮 DOM
     const initUI = () => {
         const container = document.createElement('div');
         container.id = 'mv-controls-container';
@@ -110,86 +110,63 @@
             <button id="mv-pip-btn" class="mv-btn">画中画 (F2)</button>
         `;
         document.body.appendChild(container);
-
-        document.getElementById('mv-fs-btn').addEventListener('click', () => toggleWebFS());
-        document.getElementById('mv-pip-btn').addEventListener('click', () => togglePiP());
+        document.getElementById('mv-fs-btn').addEventListener('click', toggleWebFullscreen);
+        document.getElementById('mv-pip-btn').addEventListener('click', togglePiP);
         return container;
     };
     const uiContainer = (injectCSS(), initUI());
 
     // ==========================================
-    // 逻辑：寻找最适合全屏的“播放器外层容器”
+    // 核心动作 1：智能切换网页全屏 / 影院模式
     // ==========================================
-    const getPlayerContainer = (video) => {
-        if (!video) return null;
-        // 优先匹配各大视频网站的播放器主容器（确保全屏后保留进度条等控件）
-        const selectors = [
-            '.html5-video-player',       // YouTube
-            '.bpx-player-container',     // Bilibili
-            '.art-video-player',         // 通用 ArtPlayer
-            '.dplayer',                  // 通用 DPlayer
-            '.txp_player',               // 腾讯视频
-            '#flashbox'                  // 爱奇艺等
-        ];
-        for (let sel of selectors) {
-            const el = video.closest(sel);
-            if (el) return el;
-        }
-        // 如果都没匹配到，默认使用视频的直接父级
-        return video.parentElement && video.parentElement.tagName !== 'BODY' ? video.parentElement : video;
-    };
+    function toggleWebFullscreen() {
+        const currentHost = location.hostname;
+        const rule = siteRules.find(r => currentHost.includes(r.host));
 
-    // ==========================================
-    // 动作：进入与退出网页全屏
-    // ==========================================
-    function toggleWebFS() {
-        if (state.isWebFS) {
-            // 退出网页全屏
-            if (state.activeContainer) {
-                state.activeContainer.classList.remove('mv-webfs-container');
-                let parent = state.activeContainer.parentElement;
-                while (parent && parent !== document.documentElement) {
-                    parent.classList.remove('mv-webfs-ancestor');
-                    parent = parent.parentElement;
-                }
+        // 优先：智能寻找当前网站的原生按钮并模拟点击 (完美兼容 B站、YouTube 等)
+        if (rule && rule.webBtn) {
+            const btn = document.querySelector(rule.webBtn);
+            if (btn && btn.offsetHeight > 0) {
+                // 原生 DOM 点击
+                btn.click(); 
+                return;
             }
-            document.body.classList.remove('mv-webfs-active');
-            state.isWebFS = false;
-        } else {
-            // 进入网页全屏
-            const videoEl = state.activeVideo || document.querySelector('video');
-            if (!videoEl) return;
+        }
 
-            const container = getPlayerContainer(videoEl);
-            if (!container) return;
-
-            // 向上遍历，消除所有父级的遮挡限制
-            let parent = container.parentElement;
+        // 备用：针对冷门网站的强制 CSS 全屏方案
+        const video = state.activeVideo || document.querySelector('video');
+        if (!video) return;
+        
+        if (state.isGenericWebFS) {
+            document.body.classList.remove('mv-fallback-active');
+            video.classList.remove('mv-fallback-fs');
+            let parent = video.parentElement;
             while (parent && parent !== document.documentElement) {
-                parent.classList.add('mv-webfs-ancestor');
+                parent.classList.remove('mv-fallback-ancestor');
                 parent = parent.parentElement;
             }
-
-            container.classList.add('mv-webfs-container');
-            document.body.classList.add('mv-webfs-active');
-            
-            state.activeContainer = container;
-            state.isWebFS = true;
+            state.isGenericWebFS = false;
+        } else {
+            let parent = video.parentElement;
+            while (parent && parent !== document.documentElement) {
+                parent.classList.add('mv-fallback-ancestor');
+                parent = parent.parentElement;
+            }
+            video.classList.add('mv-fallback-fs');
+            document.body.classList.add('mv-fallback-active');
+            state.isGenericWebFS = true;
         }
-
-        // 强制触发窗口 resize 事件（关键：通知 B站/YouTube 的底层代码重新计算进度条和画面尺寸）
-        setTimeout(() => {
-            window.dispatchEvent(new Event('resize'));
-        }, 50);
     }
 
     // ==========================================
-    // 动作：画中画
+    // 核心动作 2：纯净无边框画中画 (HTML5 原生 API)
     // ==========================================
     async function togglePiP() {
         if (document.pictureInPictureElement) {
+            // 如果已经在画中画，则退出
             await document.exitPictureInPicture().catch(console.warn);
         } else {
+            // 如果不在画中画，则进入
             const video = state.activeVideo || document.querySelector('video');
             if (video && video.readyState >= 1) {
                 await video.requestPictureInPicture().catch(console.warn);
@@ -198,7 +175,7 @@
     }
 
     // ==========================================
-    // 监听器：安全的快捷键拦截 (完美修复 B站 / YouTube 冲突)
+    // 监听器：快捷键控制 (精准拦截)
     // ==========================================
     window.addEventListener('keydown', (e) => {
         const isEsc = e.key === 'Escape' || e.keyCode === 27;
@@ -206,38 +183,43 @@
 
         if (!isEsc && !isF2) return;
 
-        // 判断用户是否正在打字（如发弹幕、写评论）
+        // 检查当前是否在输入框打字（如 YouTube 搜索栏、B站弹幕框）
         const activeEl = document.activeElement;
         const isInput = activeEl && (
             activeEl.tagName === 'INPUT' || 
             activeEl.tagName === 'TEXTAREA' || 
-            activeEl.isContentEditable || 
-            activeEl.getAttribute('contenteditable') === 'true'
+            activeEl.isContentEditable
         );
 
         if (isEsc) {
-            // 【核心修复】：如果你并没有通过脚本开启网页全屏，则绝对不拦截 Esc！
-            // 这样 B 站和 YouTube 原生的 Esc 功能（如退出自带全屏、关闭搜索框）将完全恢复正常！
-            if (!state.isWebFS) return;
+            // 如果用户在系统级全屏(F11)下，让浏览器自然退出，不干预
+            if (document.fullscreenElement) return;
 
-            // 如果当前处于脚本的网页全屏状态，则拦截 Esc 并退出全屏
+            // 如果在打字，只让输入框失焦，不切换影院模式
+            if (isInput) {
+                activeEl.blur(); 
+                e.preventDefault();
+                return;
+            }
+
+            // 拦截 Esc，执行网页全屏/影院模式切换
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
-            toggleWebFS(); 
+            toggleWebFullscreen();
         }
 
         if (isF2) {
-            if (isInput) return; // 打字时不触发
+            if (isInput) return; // 打字时不干预 F2
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
             togglePiP();
         }
-    }, { capture: true }); // 在最高层捕获事件
+    }, { capture: true }); // 使用 capture 保证最高优先级
 
     // ==========================================
-    // 监听器：鼠标悬浮视频呼出 UI
+    // 监听器：悬浮按钮 UI 显示
     // ==========================================
     document.addEventListener('mousemove', (e) => {
         const path = e.composedPath();
@@ -247,7 +229,6 @@
             state.activeVideo = video;
             const rect = video.getBoundingClientRect();
 
-            // 定位在视频右上角
             uiContainer.style.top = `${Math.max(10, rect.top + 15)}px`;
             uiContainer.style.left = `${Math.max(10, rect.right - uiContainer.offsetWidth - 20)}px`;
             uiContainer.classList.add('mv-show');
@@ -255,7 +236,7 @@
             clearTimeout(state.hideTimer);
             state.hideTimer = setTimeout(() => {
                 uiContainer.classList.remove('mv-show');
-            }, 2500); // 鼠标停止 2.5 秒后隐藏
+            }, 2500);
         }
     });
 
