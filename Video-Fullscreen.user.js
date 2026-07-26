@@ -1,20 +1,22 @@
 // ==UserScript==
-// @name         视频网页全屏/画中画 (原生丝滑版)
+// @name         视频网页全屏/画中画
 // @namespace    https://github.com/hulatu/Video-Fullscreen
 // @version      2.0.0
-// @description  按 Esc 智能切换 B站网页全屏 / YouTube 影院模式；按 F2 切换无边框画中画。
+// @description  完美解决 B 站等界面的遮挡问题...
 // @author       hulatu
-// @match        *://*/*
-// @exclude      *://*.w3school.com.cn/*
+// @match        :///*
+// @exclude      ://.w3school.com.cn/*
 // @grant        none
 // @run-at       document-end
+// @updateURL    https://raw.githubusercontent.com/hulatu/Video-Fullscreen/main/Video-Fullscreen.user.js
+// @downloadURL  https://raw.githubusercontent.com/hulatu/Video-Fullscreen/main/Video-Fullscreen.user.js
 // ==/UserScript==
 
 (() => {
     'use strict';
 
     // ==========================================
-    // 网站专属规则库：精确映射各网站的“网页全屏/影院模式”按钮
+    // 网站专属规则库：精确映射各网站的原生按钮
     // ==========================================
     const siteRules = [
         {
@@ -51,7 +53,7 @@
     const state = {
         activeVideo: null,
         hideTimer: null,
-        isGenericWebFS: false // 仅用于没有原生按钮的冷门网站的降级方案
+        isGenericWebFS: false // 仅用于没有原生按钮的冷门网站
     };
 
     const injectCSS = () => {
@@ -89,7 +91,7 @@
                 background: rgba(39, 116, 216, 0.95);
                 border-color: rgba(255,255,255,0.4);
             }
-            /* 通用全屏备用方案 (仅冷门网站触发) */
+            /* 备用强制全屏方案 */
             body.mv-fallback-active { overflow: hidden !important; }
             .mv-fallback-fs {
                 position: fixed !important; top: 0 !important; left: 0 !important;
@@ -123,17 +125,18 @@
         const currentHost = location.hostname;
         const rule = siteRules.find(r => currentHost.includes(r.host));
 
-        // 优先：智能寻找当前网站的原生按钮并模拟点击 (完美兼容 B站、YouTube 等)
         if (rule && rule.webBtn) {
-            const btn = document.querySelector(rule.webBtn);
-            if (btn && btn.offsetHeight > 0) {
-                // 原生 DOM 点击
-                btn.click(); 
+            const btns = document.querySelectorAll(rule.webBtn);
+            // 【核心修复】：优先找可见的按钮。如果全都被隐藏了（比如 YouTube 控制条自动隐藏时），则强行取第一个按钮！
+            const btn = Array.from(btns).find(b => b.offsetWidth > 0 && b.offsetHeight > 0) || btns[0];
+            
+            if (btn) {
+                btn.click(); // 直接触发原生点击
                 return;
             }
         }
 
-        // 备用：针对冷门网站的强制 CSS 全屏方案
+        // ================= 下方为冷门网站的降级备用方案 =================
         const video = state.activeVideo || document.querySelector('video');
         if (!video) return;
         
@@ -163,10 +166,8 @@
     // ==========================================
     async function togglePiP() {
         if (document.pictureInPictureElement) {
-            // 如果已经在画中画，则退出
             await document.exitPictureInPicture().catch(console.warn);
         } else {
-            // 如果不在画中画，则进入
             const video = state.activeVideo || document.querySelector('video');
             if (video && video.readyState >= 1) {
                 await video.requestPictureInPicture().catch(console.warn);
@@ -183,7 +184,6 @@
 
         if (!isEsc && !isF2) return;
 
-        // 检查当前是否在输入框打字（如 YouTube 搜索栏、B站弹幕框）
         const activeEl = document.activeElement;
         const isInput = activeEl && (
             activeEl.tagName === 'INPUT' || 
@@ -195,14 +195,12 @@
             // 如果用户在系统级全屏(F11)下，让浏览器自然退出，不干预
             if (document.fullscreenElement) return;
 
-            // 如果在打字，只让输入框失焦，不切换影院模式
             if (isInput) {
                 activeEl.blur(); 
                 e.preventDefault();
                 return;
             }
 
-            // 拦截 Esc，执行网页全屏/影院模式切换
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
@@ -210,13 +208,13 @@
         }
 
         if (isF2) {
-            if (isInput) return; // 打字时不干预 F2
+            if (isInput) return;
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
             togglePiP();
         }
-    }, { capture: true }); // 使用 capture 保证最高优先级
+    }, { capture: true });
 
     // ==========================================
     // 监听器：悬浮按钮 UI 显示
